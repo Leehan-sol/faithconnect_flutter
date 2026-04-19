@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 
 class SplashView extends StatefulWidget {
-  const SplashView({super.key});
+  final VoidCallback? onComplete;
+
+  const SplashView({super.key, this.onComplete});
 
   @override
   State<SplashView> createState() => _SplashViewState();
@@ -28,7 +30,6 @@ class _SplashViewState extends State<SplashView>
   }
 
   void _startAnimation() {
-    // 글자별 0.1초 간격으로 등장
     for (int i = 0; i < _text.length; i++) {
       Timer(Duration(milliseconds: i * 100), () {
         if (!mounted) return;
@@ -36,15 +37,10 @@ class _SplashViewState extends State<SplashView>
       });
     }
 
-    // 모든 글자 등장 + 1초 유지 → 페이드아웃 후 반복
     final totalMs = _text.length * 100 + 1000;
     _timer = Timer(Duration(milliseconds: totalMs), () {
       if (!mounted) return;
-      setState(() => _animatedIndex = -1);
-      Timer(const Duration(milliseconds: 600), () {
-        if (!mounted) return;
-        _startAnimation();
-      });
+      widget.onComplete?.call();
     });
   }
 
