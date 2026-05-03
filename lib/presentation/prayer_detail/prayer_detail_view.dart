@@ -443,7 +443,7 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
                 try {
                   await ref
                       .read(prayerUseCaseProvider)
-                      .deletePrayerResponse(response.id);
+                      .deletePrayerResponse(response.id, prayerRequestId: _prayer!.id);
                   _dataChanged = true;
                   setState(() {
                     _prayer!.responses!
@@ -747,6 +747,9 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
   // ==================== 대댓글 카드 (iOS ReplyRowView) ====================
   Widget _replyCard(
       entity.PrayerResponse reply, entity.PrayerResponse parent) {
+    final isUnavailable = reply.userName.trim().isEmpty;
+    final isWithdrawnUser = reply.userName == '탈퇴한 사용자';
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Container(
@@ -758,50 +761,58 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 화살표 아이콘 (iOS arrow.turn.down.right 대응)
             Container(
               width: 35,
               height: 35,
               decoration: BoxDecoration(
-                color: AppColors.customBlue1.withValues(alpha: 0.2),
+                color: isUnavailable
+                    ? Colors.grey.shade400
+                    : AppColors.customBlue1.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(Icons.subdirectory_arrow_right,
                   size: 18,
-                  color: AppColors.customNavy.withValues(alpha: 0.5)),
+                  color: isUnavailable
+                      ? Colors.grey
+                      : AppColors.customNavy.withValues(alpha: 0.5)),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(reply.userName,
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade600)),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: () => _showCommentOptions(reply),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(Icons.more_vert,
-                              size: 22, color: Colors.grey.shade500),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(timeAgo(reply.createdAt),
+              child: isUnavailable
+                  ? Text(reply.message,
                       style: TextStyle(
-                          fontSize: 11, color: Colors.grey.shade500)),
-                  const SizedBox(height: 8),
-                  Text(reply.message.trim(),
-                      style: const TextStyle(fontSize: 17, height: 1.4)),
-                ],
-              ),
+                          fontSize: 14, color: Colors.grey.shade500))
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(reply.userName,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade600)),
+                            const Spacer(),
+                            if (!isWithdrawnUser)
+                              GestureDetector(
+                                onTap: () => _showCommentOptions(reply),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Icon(Icons.more_vert,
+                                      size: 22, color: Colors.grey.shade500),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(timeAgo(reply.createdAt),
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey.shade500)),
+                        const SizedBox(height: 8),
+                        Text(reply.message.trim(),
+                            style: const TextStyle(fontSize: 17, height: 1.4)),
+                      ],
+                    ),
             ),
           ],
         ),

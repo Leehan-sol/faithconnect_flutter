@@ -189,4 +189,17 @@ class AuthRepository implements AuthRepositoryInterface {
       fromJson: InquiryResponse.fromJson,
     );
   }
+
+  @override
+  Future<void> registerPushToken({required String deviceToken}) async {
+    await _apiClient.postEmpty(
+      ApiEndpoints.pushToken,
+      data: {'deviceToken': deviceToken},
+    );
+  }
+
+  @override
+  Future<void> deletePushToken({required String deviceToken}) async {
+    await _apiClient.delete(ApiEndpoints.pushToken);
+  }
 }

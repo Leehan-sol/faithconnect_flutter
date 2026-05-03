@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
@@ -5,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/time_ago.dart';
 import '../../domain/entities/prayer.dart';
 import '../../domain/entities/my_response.dart';
+import '../../domain/events/prayer_event.dart';
 import '../components/prayer_row.dart';
 import '../prayer_detail/prayer_detail_view.dart';
 
@@ -21,11 +23,48 @@ class _MyPrayerViewState extends ConsumerState<MyPrayerView> {
   List<Prayer> _writtenPrayers = [];
   List<MyResponse> _participatedPrayers = [];
   bool _initialized = false;
+  StreamSubscription<PrayerEvent>? _eventSub;
 
   @override
   void initState() {
     super.initState();
+    _eventSub = PrayerEventBus.instance.stream.listen(_handleEvent);
     WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
+  }
+
+  @override
+  void dispose() {
+    _eventSub?.cancel();
+    super.dispose();
+  }
+
+  void _handleEvent(PrayerEvent event) {
+    setState(() {
+      switch (event) {
+        case PrayerAdded(prayer: final prayer):
+          _writtenPrayers.insert(0, prayer);
+        case PrayerUpdated(prayer: final prayer):
+          final idx = _writtenPrayers.indexWhere((p) => p.id == prayer.id);
+          if (idx != -1) _writtenPrayers[idx] = prayer;
+        case PrayerDeleted(prayerId: final id):
+          _writtenPrayers.removeWhere((p) => p.id == id);
+        case ResponseAdded(response: final r):
+          _participatedPrayers.insert(0, r);
+          final idx = _writtenPrayers.indexWhere((p) => p.id == r.prayerRequestId);
+          if (idx != -1) _writtenPrayers[idx].participationCount += 1;
+        case ResponseUpdated(response: final r):
+          final idx = _participatedPrayers.indexWhere((p) => p.id == r.id);
+          if (idx != -1) _participatedPrayers[idx].message = r.message;
+        case ResponseDeleted(responseId: final id, prayerRequestId: final prayerRequestId):
+          _participatedPrayers.removeWhere((p) => p.id == id);
+          if (prayerRequestId > 0) {
+            final idx = _writtenPrayers.indexWhere((p) => p.id == prayerRequestId);
+            if (idx != -1) _writtenPrayers[idx].participationCount -= 1;
+          }
+        case UserBlocked(userId: final userId):
+          _writtenPrayers.removeWhere((p) => p.userId == userId);
+      }
+    });
   }
 
   Future<void> _initialize() async {
@@ -263,7 +302,7 @@ class _FullListViewState extends ConsumerState<_FullListView> {
   @override
   void initState() {
     super.initState();
-    _loadMore();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMore());
   }
 
   Future<void> _loadMore() async {
@@ -274,21 +313,35 @@ class _FullListViewState extends ConsumerState<_FullListView> {
       final useCase = ref.read(prayerUseCaseProvider);
       if (widget.type == _ListType.written) {
         final page = await useCase.loadWrittenPrayers(page: _currentPage);
-        setState(() {
-          _items.addAll(page.prayers);
-          _hasNext = page.hasNext;
-          _currentPage++;
-        });
+        if (mounted) {
+          setState(() {
+            _items.addAll(page.prayers);
+            _hasNext = page.hasNext;
+            _currentPage++;
+          });
+        }
       } else {
         final page = await useCase.loadParticipatedPrayers(page: _currentPage);
-        setState(() {
-          _items.addAll(page.responses);
-          _hasNext = page.hasNext;
-          _currentPage++;
-        });
+        if (mounted) {
+          setState(() {
+            _items.addAll(page.responses);
+            _hasNext = page.hasNext;
+            _currentPage++;
+          });
+        }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('loadMore error: $e');
+    }
     _isLoading = false;
+  }
+
+  Future<void> _refresh() async {
+    _items.clear();
+    _currentPage = 1;
+    _hasNext = true;
+    _isLoading = false;
+    await _loadMore();
   }
 
   @override
@@ -298,7 +351,18 @@ class _FullListViewState extends ConsumerState<_FullListView> {
         title: Text(widget.title),
         centerTitle: true,
       ),
-      body: ListView.builder(
+      body: _items.isEmpty && !_isLoading
+          ? Center(
+              child: Text(
+                widget.type == _ListType.written
+                    ? '아직 기도가 없어요'
+                    : '아직 함께한 기도가 없어요',
+                style: TextStyle(color: Colors.grey.shade500),
+              ),
+            )
+          : RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView.builder(
         itemCount: _items.length,
         itemBuilder: (context, index) {
           if (index == _items.length - 1) _loadMore();
@@ -372,6 +436,7 @@ class _FullListViewState extends ConsumerState<_FullListView> {
             );
           }
         },
+      ),
       ),
     );
   }

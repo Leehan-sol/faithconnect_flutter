@@ -115,4 +115,12 @@ class AuthUseCase {
       userEmail: userEmail,
     );
   }
+
+  Future<void> registerPushToken({required String deviceToken}) async {
+    await _repository.registerPushToken(deviceToken: deviceToken);
+  }
+
+  Future<void> deletePushToken({required String deviceToken}) async {
+    await _repository.deletePushToken(deviceToken: deviceToken);
+  }
 }

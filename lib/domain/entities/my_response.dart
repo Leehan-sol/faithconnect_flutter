@@ -4,10 +4,10 @@ class MyResponse {
   final String prayerRequestTitle;
   final int categoryId;
   final String categoryName;
-  final String message;
+  String message;
   final String createdAt;
 
-  const MyResponse({
+  MyResponse({
     required this.id,
     required this.prayerRequestId,
     required this.prayerRequestTitle,

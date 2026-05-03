@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
@@ -55,6 +56,17 @@ class LoginNotifier extends Notifier<LoginState> {
 
       // 3. 세션에 저장 (iOS: session.login(user: user))
       ref.read(userSessionProvider.notifier).login(user);
+
+      // 4. FCM 토큰 등록
+      try {
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+        if (fcmToken != null) {
+          await authUseCase.registerPushToken(deviceToken: fcmToken);
+          debugPrint('FCM 토큰 등록 완료');
+        }
+      } catch (e) {
+        debugPrint('FCM 토큰 등록 실패: $e');
+      }
 
       state = state.copyWith(isLoading: false);
     } catch (e, stackTrace) {

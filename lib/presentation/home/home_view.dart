@@ -40,14 +40,24 @@ class _HomeViewState extends ConsumerState<HomeView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('기도 모음', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: GestureDetector(
+          onTap: () {
+            if (widget.scrollController?.hasClients == true) {
+              widget.scrollController!.animateTo(
+                0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          },
+          child: const Text('기도 모음', style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
       ),
       floatingActionButton: FloatingButton(
-        onPressed: () async {
-          final result = await Navigator.of(context).push(
+        onPressed: () {
+          Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const PrayerEditorView()),
           );
-          if (result == true) notifier.refreshPrayers();
         },
       ),
       body: homeState.prayers.isEmpty && !homeState.isLoading
@@ -126,14 +136,13 @@ class _HomeViewState extends ConsumerState<HomeView> {
             padding: const EdgeInsets.only(left: 20, right: 20, bottom: 16),
             child: PrayerRow(
               prayer: prayer,
-              onTap: () async {
-                final result = await Navigator.of(context).push(
+              onTap: () {
+                Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) =>
                         PrayerDetailView(prayerRequestId: prayer.id),
                   ),
                 );
-                if (result == true) notifier.refreshPrayers();
               },
             ),
           );

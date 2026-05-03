@@ -1,13 +1,65 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
+import '../../domain/events/prayer_event.dart';
 import 'home_state.dart';
 
 /// iOS HomeViewModel 대응
 class HomeNotifier extends Notifier<HomeState> {
   bool _hasInitialized = false;
+  StreamSubscription<PrayerEvent>? _eventSub;
 
   @override
-  HomeState build() => const HomeState();
+  HomeState build() {
+    _eventSub?.cancel();
+    _eventSub = PrayerEventBus.instance.stream.listen(_handleEvent);
+    ref.onDispose(() => _eventSub?.cancel());
+    return const HomeState();
+  }
+
+  void _handleEvent(PrayerEvent event) {
+    switch (event) {
+      case PrayerAdded(prayer: final prayer):
+        if (state.selectedCategoryId == 1 ||
+            state.selectedCategoryId == prayer.categoryId) {
+          state = state.copyWith(prayers: [prayer, ...state.prayers]);
+        }
+      case PrayerUpdated(prayer: final prayer):
+        final idx = state.prayers.indexWhere((p) => p.id == prayer.id);
+        if (idx != -1) {
+          final updated = List.of(state.prayers);
+          updated[idx] = prayer;
+          state = state.copyWith(prayers: updated);
+        }
+      case PrayerDeleted(prayerId: final id):
+        state = state.copyWith(
+            prayers: state.prayers.where((p) => p.id != id).toList());
+      case ResponseAdded(response: final r):
+        final idx =
+            state.prayers.indexWhere((p) => p.id == r.prayerRequestId);
+        if (idx != -1) {
+          final updated = List.of(state.prayers);
+          updated[idx].participationCount += 1;
+          state = state.copyWith(prayers: updated);
+        }
+      case ResponseDeleted(prayerRequestId: final prayerRequestId):
+        if (prayerRequestId > 0) {
+          final idx =
+              state.prayers.indexWhere((p) => p.id == prayerRequestId);
+          if (idx != -1) {
+            final updated = List.of(state.prayers);
+            updated[idx].participationCount -= 1;
+            state = state.copyWith(prayers: updated);
+          }
+        }
+      case ResponseUpdated():
+        break;
+      case UserBlocked(userId: final userId):
+        state = state.copyWith(
+            prayers:
+                state.prayers.where((p) => p.userId != userId).toList());
+    }
+  }
 
   /// iOS: initializeIfNeeded()
   Future<void> initializeIfNeeded() async {
@@ -87,7 +139,6 @@ class HomeNotifier extends Notifier<HomeState> {
         page: pageToLoad,
       );
 
-      // 카테고리가 바뀌었으면 무시 (iOS guard categoryID == self.selectedCategoryId)
       if (categoryId != state.selectedCategoryId) return;
 
       if (reset) {

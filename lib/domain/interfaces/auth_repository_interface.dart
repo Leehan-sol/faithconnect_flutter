@@ -38,4 +38,6 @@ abstract class AuthRepositoryInterface {
     required String content,
     required String userEmail,
   });
+  Future<void> registerPushToken({required String deviceToken});
+  Future<void> deletePushToken({required String deviceToken});
 }

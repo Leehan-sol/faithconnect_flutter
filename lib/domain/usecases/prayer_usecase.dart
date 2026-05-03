@@ -3,6 +3,7 @@ import '../entities/prayer_category.dart';
 import '../entities/prayer_response.dart';
 import '../entities/my_response.dart';
 import '../entities/blocked_user.dart';
+import '../events/prayer_event.dart';
 import '../../data/repositories/prayer_repository.dart';
 import '../../data/dtos/prayer_dtos.dart';
 import '../../data/dtos/report_dtos.dart';
@@ -10,6 +11,7 @@ import '../../data/dtos/report_dtos.dart';
 /// iOS PrayerUseCase.swift 대응
 class PrayerUseCase {
   final PrayerRepository _repository;
+  final PrayerEventBus _eventBus = PrayerEventBus.instance;
 
   PrayerUseCase({required PrayerRepository repository})
       : _repository = repository;
@@ -55,7 +57,7 @@ class PrayerUseCase {
       title: title,
       content: content,
     );
-    return Prayer(
+    final prayer = Prayer(
       id: dto.prayerRequestId,
       userId: dto.prayerUserId,
       userName: dto.prayerUserName,
@@ -68,6 +70,8 @@ class PrayerUseCase {
       hasParticipated: false,
       isMine: dto.isMine,
     );
+    _eventBus.fire(PrayerAdded(prayer));
+    return prayer;
   }
 
   Future<Prayer> updatePrayer({
@@ -82,11 +86,14 @@ class PrayerUseCase {
       title: title,
       content: content,
     );
-    return _prayerFromDetailDto(dto);
+    final prayer = _prayerFromDetailDto(dto);
+    _eventBus.fire(PrayerUpdated(prayer));
+    return prayer;
   }
 
   Future<void> deletePrayer(int prayerRequestId) async {
     await _repository.deletePrayer(prayerRequestId);
+    _eventBus.fire(PrayerDeleted(prayerRequestId));
   }
 
   Future<PrayerResponse> writePrayerResponse({
@@ -97,7 +104,17 @@ class PrayerUseCase {
       prayerRequestId: prayerRequestId,
       message: message,
     );
-    return _responseFromDto(dto);
+    final response = _responseFromDto(dto);
+    _eventBus.fire(ResponseAdded(MyResponse(
+      id: response.id,
+      prayerRequestId: response.prayerRequestId,
+      prayerRequestTitle: '',
+      categoryId: 0,
+      categoryName: '',
+      message: response.message,
+      createdAt: response.createdAt,
+    )));
+    return response;
   }
 
   Future<PrayerResponse> updatePrayerResponse({
@@ -108,11 +125,14 @@ class PrayerUseCase {
       responseId: responseId,
       message: message,
     );
-    return _responseFromDto(dto);
+    final response = _responseFromDto(dto);
+    _eventBus.fire(ResponseUpdated(response));
+    return response;
   }
 
-  Future<void> deletePrayerResponse(int responseId) async {
+  Future<void> deletePrayerResponse(int responseId, {int? prayerRequestId}) async {
     await _repository.deletePrayerResponse(responseId);
+    _eventBus.fire(ResponseDeleted(responseId, prayerRequestId ?? 0));
   }
 
   Future<PrayerResponse> writeReply({
@@ -236,6 +256,7 @@ class PrayerUseCase {
 
   Future<void> blockUser(int userId) async {
     await _repository.blockUser(userId);
+    _eventBus.fire(UserBlocked(userId));
   }
 
   Future<BlockedUserPage> loadBlockList({required int page}) async {

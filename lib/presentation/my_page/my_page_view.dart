@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -283,7 +284,15 @@ class MyPageView extends ConsumerWidget {
             onPressed: () async {
               Navigator.of(dialogContext).pop();
               try {
-                await ref.read(authUseCaseProvider).logout();
+                final authUseCase = ref.read(authUseCaseProvider);
+                // FCM 토큰 삭제
+                try {
+                  final fcmToken = await FirebaseMessaging.instance.getToken();
+                  if (fcmToken != null) {
+                    await authUseCase.deletePushToken(deviceToken: fcmToken);
+                  }
+                } catch (_) {}
+                await authUseCase.logout();
                 ref.read(userSessionProvider.notifier).logout();
               } catch (_) {}
             },
