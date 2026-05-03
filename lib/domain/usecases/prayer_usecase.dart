@@ -2,8 +2,10 @@ import '../entities/prayer.dart';
 import '../entities/prayer_category.dart';
 import '../entities/prayer_response.dart';
 import '../entities/my_response.dart';
+import '../entities/blocked_user.dart';
 import '../../data/repositories/prayer_repository.dart';
 import '../../data/dtos/prayer_dtos.dart';
+import '../../data/dtos/report_dtos.dart';
 
 /// iOS PrayerUseCase.swift 대응
 class PrayerUseCase {
@@ -205,5 +207,54 @@ class PrayerUseCase {
       parentResponseId: dto.parentResponseId,
       replyCount: dto.replyCount ?? 0,
     );
+  }
+
+  // 신고/차단
+  Future<void> reportPrayer({
+    required int prayerRequestId,
+    required ReportReasonType reasonType,
+    String? reasonDetail,
+  }) async {
+    await _repository.reportPrayer(
+      prayerRequestId: prayerRequestId,
+      reasonType: reasonType,
+      reasonDetail: reasonDetail,
+    );
+  }
+
+  Future<void> reportPrayerResponse({
+    required int prayerResponseId,
+    required ReportReasonType reasonType,
+    String? reasonDetail,
+  }) async {
+    await _repository.reportPrayerResponse(
+      prayerResponseId: prayerResponseId,
+      reasonType: reasonType,
+      reasonDetail: reasonDetail,
+    );
+  }
+
+  Future<void> blockUser(int userId) async {
+    await _repository.blockUser(userId);
+  }
+
+  Future<BlockedUserPage> loadBlockList({required int page}) async {
+    final result = await _repository.loadBlockList(page: page);
+    return BlockedUserPage(
+      blockedUsers: result.blocks
+          .map((dto) => BlockedUser(
+                id: dto.blockId,
+                userId: dto.blockedUserId,
+                userName: dto.blockedUserName,
+                createdAt: dto.createdAt,
+              ))
+          .toList(),
+      currentPage: result.currentPage,
+      hasNext: result.currentPage < result.totalPages,
+    );
+  }
+
+  Future<void> unblockUser(int userId) async {
+    await _repository.unblockUser(userId);
   }
 }

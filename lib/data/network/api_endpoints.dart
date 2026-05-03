@@ -1,10 +1,13 @@
 /// iOS APIEndPoint.swift 대응
 /// 서버 환경 + API 경로 정의
+///
+/// 사용법:
+///   개발: flutter run --dart-define-from-file=env/dev.json
+///   배포: flutter run --dart-define-from-file=env/release.json
+
 class ApiEndpoints {
-  // 환경 설정 (iOS: ServerEnvironment.release.baseURL)
-  // Android 에뮬레이터에서 localhost 접근 시 10.0.2.2 사용
-  // (에뮬레이터의 localhost는 에뮬레이터 자체를 가리키므로)
-  static const String baseUrl = 'http://10.0.2.2:8080';
+  static const String baseUrl =
+      String.fromEnvironment('BASE_URL', defaultValue: 'http://10.0.2.2:8080');
   static const String _apiPath = '/api/prayer';
 
   // Auth

@@ -4,15 +4,18 @@ import '../../core/utils/time_ago.dart';
 import '../../domain/entities/prayer.dart';
 
 /// iOS PrayerRowView 대응
-/// 기도제목 카드 UI
+enum PrayerCellType { mine, others }
+
 class PrayerRow extends StatelessWidget {
   final Prayer prayer;
   final VoidCallback? onTap;
+  final PrayerCellType cellType;
 
   const PrayerRow({
     super.key,
     required this.prayer,
     this.onTap,
+    this.cellType = PrayerCellType.others,
   });
 
   @override
@@ -38,7 +41,6 @@ class PrayerRow extends StatelessWidget {
             // Header: 카테고리 뱃지 + 작성자 + 시간
             Row(
               children: [
-                // 카테고리 뱃지
                 Container(
                   width: 40,
                   height: 30,
@@ -56,14 +58,16 @@ class PrayerRow extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  prayer.userName,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade500,
+                if (cellType == PrayerCellType.others) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    prayer.userName,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                    ),
                   ),
-                ),
+                ],
                 const Spacer(),
                 Text(
                   timeAgo(prayer.createdAt),
@@ -86,18 +90,21 @@ class PrayerRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 15),
 
-            // 내용
-            Text(
-              prayer.content,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade700,
+            // 내용 (others만 표시)
+            if (cellType == PrayerCellType.others) ...[
+              const SizedBox(height: 15),
+              Text(
+                prayer.content,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade700,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
+            ],
+
             const SizedBox(height: 15),
 
             // 참여 인원
@@ -123,5 +130,4 @@ class PrayerRow extends StatelessWidget {
       ),
     );
   }
-
 }

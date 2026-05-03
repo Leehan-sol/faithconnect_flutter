@@ -10,17 +10,14 @@ class NoOverscrollBehavior extends MaterialScrollBehavior {
   @override
   Widget buildOverscrollIndicator(
       BuildContext context, Widget child, ScrollableDetails details) {
-    return child; // glow 제거
+    return child;
   }
 
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) {
-    return const ClampingScrollPhysics(); // stretch 제거
+    return const ClampingScrollPhysics();
   }
 }
-
-// TODO: 개발 끝나면 false로 되돌리기
-const _devSkipLogin = true;
 
 void main() {
   runApp(const ProviderScope(child: FaithConnectApp()));
@@ -34,14 +31,13 @@ class FaithConnectApp extends StatefulWidget {
 }
 
 class _FaithConnectAppState extends State<FaithConnectApp> {
-  bool _splashDone = _devSkipLogin;
+  bool _splashDone = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4A90E2)),
-      // Android overscroll glow 제거 (iOS bounce 스타일)
       splashFactory: NoSplash.splashFactory,
       appBarTheme: const AppBarTheme(
         titleTextStyle: TextStyle(
@@ -78,22 +74,20 @@ class _MainAppState extends ConsumerState<_MainApp> {
   @override
   void initState() {
     super.initState();
-    if (_devSkipLogin) {
-      _devAutoLogin();
-    }
+    _tryAutoLogin();
   }
 
-  Future<void> _devAutoLogin() async {
+  /// 저장된 토큰이 있으면 자동 로그인 시도
+  Future<void> _tryAutoLogin() async {
     try {
       final authUseCase = ref.read(authUseCaseProvider);
-      await authUseCase.login(
-        email: 'ho20128@naver.com',
-        password: 'passw0rd1!',
-      );
+      final hasToken = await authUseCase.hasToken;
+      if (!hasToken) return;
+
       final user = await authUseCase.fetchMyInfo();
       ref.read(userSessionProvider.notifier).login(user);
-    } catch (e) {
-      debugPrint('Dev auto-login failed: $e');
+    } catch (_) {
+      // 토큰 만료 등 실패 시 로그인 화면으로
     }
   }
 

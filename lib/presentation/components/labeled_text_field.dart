@@ -55,6 +55,7 @@ class _LabeledTextFieldState extends State<LabeledTextField> {
           keyboardType: widget.keyboardType,
           obscureText: widget.isSecure && _obscured,
           autocorrect: false,
+          autofillHints: const [],
           onChanged: widget.onChanged,
           decoration: InputDecoration(
             hintText: widget.placeholder,

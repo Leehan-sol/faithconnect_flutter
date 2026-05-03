@@ -93,6 +93,7 @@ class _MyPrayerViewState extends ConsumerState<MyPrayerView> {
                       },
                       child: PrayerRow(
                         prayer: prayer,
+                        cellType: PrayerCellType.mine,
                         onTap: () => _navigateToDetail(prayer.id),
                       ),
                     ),
@@ -193,6 +194,7 @@ class _MyPrayerViewState extends ConsumerState<MyPrayerView> {
     return GestureDetector(
       onTap: () => _navigateToDetail(response.prayerRequestId),
       child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -209,17 +211,20 @@ class _MyPrayerViewState extends ConsumerState<MyPrayerView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('"${response.prayerRequestTitle}"',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                     fontSize: 13, color: Colors.grey.shade600)),
-            const SizedBox(height: 8),
-            Text(response.message, style: const TextStyle(fontSize: 15)),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(timeAgo(response.createdAt),
-                  style: TextStyle(
-                      fontSize: 11, color: Colors.grey.shade500)),
-            ),
+            const SizedBox(height: 15),
+            Text(response.message,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            Text(timeAgo(response.createdAt),
+                style: TextStyle(
+                    fontSize: 11, color: Colors.grey.shade500)),
           ],
         ),
       ),
@@ -329,6 +334,7 @@ class _FullListViewState extends ConsumerState<_FullListView> {
                   );
                 },
                 child: Container(
+                  width: double.infinity,
                   padding: const EdgeInsets.all(15),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -345,18 +351,20 @@ class _FullListViewState extends ConsumerState<_FullListView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('"${response.prayerRequestTitle}"',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                               fontSize: 13, color: Colors.grey.shade600)),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 15),
                       Text(response.message,
-                          style: const TextStyle(fontSize: 15)),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(timeAgo(response.createdAt),
-                            style: TextStyle(
-                                fontSize: 11, color: Colors.grey.shade500)),
-                      ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 15),
+                      Text(timeAgo(response.createdAt),
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade500)),
                     ],
                   ),
                 ),

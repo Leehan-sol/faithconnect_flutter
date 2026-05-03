@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/storage/user_session.dart';
+import '../block_list/block_list_view.dart';
+import '../inquiry/inquiry_view.dart';
+import '../policy/policy_web_view.dart';
+import '../find_password/find_password_view.dart';
 
 /// iOS MyPageView 대응
 class MyPageView extends ConsumerWidget {
@@ -62,7 +66,9 @@ class MyPageView extends ConsumerWidget {
                   color: AppColors.customBlue1,
                   title: '비밀번호 변경',
                   onTap: () {
-                    // TODO: 비밀번호 변경 화면
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => FindPasswordView(initialEmail: session.email),
+                    ));
                   },
                 ),
                 Divider(height: 1, color: Colors.grey.shade100),
@@ -71,7 +77,9 @@ class MyPageView extends ConsumerWidget {
                   color: AppColors.customBlue1,
                   title: '차단 관리',
                   onTap: () {
-                    // TODO: 차단 목록 화면
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const BlockListView(),
+                    ));
                   },
                 ),
                 Divider(height: 1, color: Colors.grey.shade100),
@@ -92,14 +100,24 @@ class MyPageView extends ConsumerWidget {
                   icon: Icons.description,
                   color: Colors.black,
                   title: '이용약관',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) =>
+                          const PolicyWebView(policyType: PolicyType.terms),
+                    ));
+                  },
                 ),
                 Divider(height: 1, color: Colors.grey.shade100),
                 _settingsItem(
                   icon: Icons.shield,
                   color: Colors.black,
                   title: '개인정보 처리방침',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) =>
+                          const PolicyWebView(policyType: PolicyType.privacy),
+                    ));
+                  },
                 ),
                 Divider(height: 1, color: Colors.grey.shade100),
                 _settingsItem(
@@ -107,7 +125,9 @@ class MyPageView extends ConsumerWidget {
                   color: Colors.black,
                   title: '문의하기',
                   onTap: () {
-                    // TODO: 문의하기 화면
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const InquiryView(),
+                    ));
                   },
                 ),
               ],
@@ -199,7 +219,7 @@ class MyPageView extends ConsumerWidget {
     final controller = TextEditingController(text: current);
     showCupertinoDialog(
       context: context,
-      builder: (_) => CupertinoAlertDialog(
+      builder: (dialogContext) => CupertinoAlertDialog(
         title: const Text('닉네임 변경'),
         content: Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -210,18 +230,35 @@ class MyPageView extends ConsumerWidget {
         ),
         actions: [
           CupertinoDialogAction(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('취소'),
           ),
           CupertinoDialogAction(
             onPressed: () async {
-              Navigator.of(context).pop();
-              if (controller.text.trim().isEmpty) return;
+              Navigator.of(dialogContext).pop();
+              final nickname = controller.text.trim();
+              if (nickname.isEmpty) return;
               try {
                 final authUseCase = ref.read(authUseCaseProvider);
-                // TODO: changeNickname API 추가 필요
-                debugPrint('닉네임 변경: ${controller.text.trim()}');
-              } catch (_) {}
+                final updated = await authUseCase.changeNickname(nickname: nickname);
+                ref.read(userSessionProvider.notifier).updateNickname(updated);
+              } catch (e) {
+                if (context.mounted) {
+                  showCupertinoDialog(
+                    context: context,
+                    builder: (errContext) => CupertinoAlertDialog(
+                      title: const Text('닉네임 변경 실패'),
+                      content: Text(e.toString()),
+                      actions: [
+                        CupertinoDialogAction(
+                          onPressed: () => Navigator.of(errContext).pop(),
+                          child: const Text('확인'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('변경'),
           ),
@@ -233,18 +270,18 @@ class MyPageView extends ConsumerWidget {
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showCupertinoDialog(
       context: context,
-      builder: (_) => CupertinoAlertDialog(
+      builder: (dialogContext) => CupertinoAlertDialog(
         title: const Text('로그아웃'),
         content: const Text('로그아웃 하시겠습니까?'),
         actions: [
           CupertinoDialogAction(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('취소'),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
             onPressed: () async {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
               try {
                 await ref.read(authUseCaseProvider).logout();
                 ref.read(userSessionProvider.notifier).logout();
@@ -260,20 +297,38 @@ class MyPageView extends ConsumerWidget {
   void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) {
     showCupertinoDialog(
       context: context,
-      builder: (_) => CupertinoAlertDialog(
+      builder: (dialogContext) => CupertinoAlertDialog(
         title: const Text('회원탈퇴'),
         content: const Text('정말 탈퇴하시겠습니까?\n모든 데이터가 삭제됩니다.'),
         actions: [
           CupertinoDialogAction(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('취소'),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
             onPressed: () async {
-              Navigator.of(context).pop();
-              // TODO: deleteAccount API
-              ref.read(userSessionProvider.notifier).logout();
+              Navigator.of(dialogContext).pop();
+              try {
+                await ref.read(authUseCaseProvider).deleteAccount();
+                ref.read(userSessionProvider.notifier).logout();
+              } catch (e) {
+                if (context.mounted) {
+                  showCupertinoDialog(
+                    context: context,
+                    builder: (errContext) => CupertinoAlertDialog(
+                      title: const Text('회원탈퇴 실패'),
+                      content: Text(e.toString()),
+                      actions: [
+                        CupertinoDialogAction(
+                          onPressed: () => Navigator.of(errContext).pop(),
+                          child: const Text('확인'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('탈퇴'),
           ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/time_ago.dart';
+import '../../data/dtos/report_dtos.dart';
 import '../../domain/entities/prayer.dart';
 import '../../domain/entities/prayer_response.dart' as entity;
 import '../components/action_button.dart';
@@ -84,6 +85,74 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReportSheet({int? prayerRequestId, int? prayerResponseId}) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => CupertinoActionSheet(
+        title: const Text('신고 사유를 선택해주세요'),
+        actions: ReportReasonType.values.map((reason) {
+          return CupertinoActionSheetAction(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              try {
+                final prayerUseCase = ref.read(prayerUseCaseProvider);
+                if (prayerRequestId != null) {
+                  await prayerUseCase.reportPrayer(
+                    prayerRequestId: prayerRequestId,
+                    reasonType: reason,
+                  );
+                } else if (prayerResponseId != null) {
+                  await prayerUseCase.reportPrayerResponse(
+                    prayerResponseId: prayerResponseId,
+                    reasonType: reason,
+                  );
+                }
+                _showAlert('신고 완료', '신고가 접수되었습니다.');
+              } catch (e) {
+                _showAlert('신고 실패', e.toString());
+              }
+            },
+            child: Text(reason.displayName),
+          );
+        }).toList(),
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+      ),
+    );
+  }
+
+  void _showBlockConfirm({required int userId, required String userName}) {
+    showCupertinoDialog(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: const Text('사용자 차단'),
+        content: Text('$userName님을 차단하시겠습니까?\n차단된 사용자의 게시물은 더 이상 표시되지 않습니다.'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () async {
+              Navigator.of(context).pop();
+              try {
+                await ref.read(prayerUseCaseProvider).blockUser(userId);
+                _dataChanged = true;
+                _showAlert('차단 완료', '$userName님을 차단했습니다.');
+              } catch (e) {
+                _showAlert('차단 실패', e.toString());
+              }
+            },
+            child: const Text('차단'),
           ),
         ],
       ),
@@ -331,11 +400,17 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
         : [
             CupertinoActionSheetAction(
                 isDestructiveAction: true,
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _showReportSheet(prayerRequestId: _prayer!.id);
+                },
                 child: const Text('신고')),
             CupertinoActionSheetAction(
                 isDestructiveAction: true,
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _showBlockConfirm(userId: _prayer!.userId, userName: _prayer!.userName);
+                },
                 child: const Text('차단')),
           ];
 
@@ -385,11 +460,17 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
         : [
             CupertinoActionSheetAction(
                 isDestructiveAction: true,
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _showReportSheet(prayerResponseId: response.id);
+                },
                 child: const Text('신고')),
             CupertinoActionSheetAction(
                 isDestructiveAction: true,
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _showBlockConfirm(userId: response.userId, userName: response.userName);
+                },
                 child: const Text('차단')),
           ];
 
@@ -576,6 +657,9 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
 
   // ==================== 댓글 카드 (iOS CommentRowView) ====================
   Widget _commentCard(entity.PrayerResponse response) {
+    final isUnavailable = response.userName.trim().isEmpty;
+    final isWithdrawnUser = response.userName == '탈퇴한 사용자';
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Container(
@@ -591,59 +675,68 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
               width: 35,
               height: 35,
               decoration: BoxDecoration(
-                color: AppColors.customBlue1.withValues(alpha: 0.4),
+                color: isUnavailable
+                    ? Colors.grey.shade400
+                    : AppColors.customBlue1.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: Icon(Icons.people, size: 18, color: AppColors.customNavy),
+              child: Icon(Icons.people,
+                  size: 18,
+                  color: isUnavailable ? Colors.grey : AppColors.customNavy),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(response.userName,
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade600)),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: () => _showCommentOptions(response),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(Icons.more_vert,
-                              size: 22, color: Colors.grey.shade500),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(timeAgo(response.createdAt),
+              child: isUnavailable
+                  ? Text(response.message,
                       style: TextStyle(
-                          fontSize: 11, color: Colors.grey.shade500)),
-                  const SizedBox(height: 8),
-                  Text(response.message.trim(),
-                      style: const TextStyle(fontSize: 17, height: 1.4)),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: GestureDetector(
-                      onTap: () => _startReply(response),
-                      child: Text(
-                        response.replyCount > 0
-                            ? '답글 (${response.replyCount})'
-                            : '답글',
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.customBlue1),
-                      ),
+                          fontSize: 14, color: Colors.grey.shade500))
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(response.userName,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade600)),
+                            const Spacer(),
+                            if (!isWithdrawnUser)
+                              GestureDetector(
+                                onTap: () => _showCommentOptions(response),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Icon(Icons.more_vert,
+                                      size: 22, color: Colors.grey.shade500),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(timeAgo(response.createdAt),
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey.shade500)),
+                        const SizedBox(height: 8),
+                        Text(response.message.trim(),
+                            style: const TextStyle(fontSize: 17, height: 1.4)),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: () => _startReply(response),
+                            child: Text(
+                              response.replyCount > 0
+                                  ? '답글 (${response.replyCount})'
+                                  : '답글',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.customBlue1),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),

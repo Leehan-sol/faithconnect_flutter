@@ -1,6 +1,7 @@
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
 import '../dtos/prayer_dtos.dart';
+import '../dtos/report_dtos.dart';
 
 /// iOS PrayerRepository.swift 대응
 class PrayerRepository {
@@ -124,5 +125,50 @@ class PrayerRepository {
       queryParameters: {'page': page},
       fromJson: (json) => json,
     );
+  }
+
+  // 신고/차단
+  Future<void> reportPrayer({
+    required int prayerRequestId,
+    required ReportReasonType reasonType,
+    String? reasonDetail,
+  }) async {
+    await _apiClient.post(
+      ApiEndpoints.requestReport(prayerRequestId),
+      data: ReportPrayerRequest(reasonType: reasonType, reasonDetail: reasonDetail).toJson(),
+      fromJson: ReportResponse.fromJson,
+    );
+  }
+
+  Future<void> reportPrayerResponse({
+    required int prayerResponseId,
+    required ReportReasonType reasonType,
+    String? reasonDetail,
+  }) async {
+    await _apiClient.post(
+      ApiEndpoints.responseReport(prayerResponseId),
+      data: ReportPrayerRequest(reasonType: reasonType, reasonDetail: reasonDetail).toJson(),
+      fromJson: ReportResponse.fromJson,
+    );
+  }
+
+  Future<void> blockUser(int userId) async {
+    await _apiClient.post(
+      ApiEndpoints.blockUser(userId),
+      data: {},
+      fromJson: BlockResponse.fromJson,
+    );
+  }
+
+  Future<BlockListResponse> loadBlockList({required int page}) async {
+    return _apiClient.get(
+      ApiEndpoints.blocks,
+      queryParameters: {'page': page},
+      fromJson: BlockListResponse.fromJson,
+    );
+  }
+
+  Future<void> unblockUser(int userId) async {
+    await _apiClient.delete(ApiEndpoints.blockUser(userId));
   }
 }

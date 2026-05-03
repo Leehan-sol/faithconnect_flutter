@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../components/labeled_text_field.dart';
 import '../components/action_button.dart';
@@ -109,7 +110,6 @@ class _LoginViewState extends ConsumerState<LoginView> {
                       LabeledTextField(
                         title: '이메일',
                         placeholder: '이메일을 입력하세요',
-                        keyboardType: TextInputType.emailAddress,
                         controller: _emailController,
                         onChanged: notifier.setEmail,
                       ),
@@ -127,7 +127,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                       Row(
                         children: [
                           TextButton(
-                            onPressed: () {},
+                            onPressed: () => context.push('/find-id'),
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.zero,
                               minimumSize: Size.zero,
@@ -152,7 +152,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                             ),
                           ),
                           TextButton(
-                            onPressed: () {},
+                            onPressed: () => context.push('/find-password'),
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.zero,
                               minimumSize: Size.zero,
@@ -179,7 +179,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
                       const SizedBox(height: 16),
 
                       TextButton(
-                        onPressed: () {},
+                        onPressed: () => context.push('/signup'),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
