@@ -15,11 +15,21 @@ class SignUpNotifier extends Notifier<SignUpState> {
   void setConfirmPassword(String value) =>
       state = state.copyWith(confirmPassword: value);
 
+  static final _emailRegex = RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,64}$');
+  static final _passwordRegex = RegExp(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$');
+
   Future<void> requestEmailVerification() async {
     if (state.email.isEmpty) {
       state = state.copyWith(
         alertTitle: () => '입력 오류',
         alertMessage: () => '이메일을 입력해주세요.',
+      );
+      return;
+    }
+    if (!_emailRegex.hasMatch(state.email)) {
+      state = state.copyWith(
+        alertTitle: () => '입력 오류',
+        alertMessage: () => '올바른 이메일 형식이 아닙니다.',
       );
       return;
     }
@@ -84,6 +94,13 @@ class SignUpNotifier extends Notifier<SignUpState> {
       state = state.copyWith(
         alertTitle: () => '입력 오류',
         alertMessage: () => '비밀번호를 입력해주세요.',
+      );
+      return;
+    }
+    if (!_passwordRegex.hasMatch(state.password)) {
+      state = state.copyWith(
+        alertTitle: () => '입력 오류',
+        alertMessage: () => '비밀번호는 영문, 숫자 포함 8자 이상이어야 합니다.',
       );
       return;
     }

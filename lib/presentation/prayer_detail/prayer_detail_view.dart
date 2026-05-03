@@ -23,6 +23,10 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
   bool _isLoading = true;
   bool _dataChanged = false;
 
+  // 대댓글 페이지네이션 (iOS replyPages/replyHasNext 대응)
+  final Map<int, int> _replyPages = {};
+  final Map<int, bool> _replyHasNext = {};
+
   // 대댓글 상태
   entity.PrayerResponse? _replyingTo;
   final _replyController = TextEditingController();
@@ -46,16 +50,13 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
       final prayer = await ref
           .read(prayerUseCaseProvider)
           .loadPrayerDetail(widget.prayerRequestId);
+      _replyPages.clear();
+      _replyHasNext.clear();
       // 대댓글이 있는 댓글에 대해 대댓글 로드
       if (prayer.responses != null) {
         for (final response in prayer.responses!) {
           if (response.replyCount > 0) {
-            try {
-              final replies = await ref
-                  .read(prayerUseCaseProvider)
-                  .loadReplies(responseId: response.id, page: 1);
-              response.replies = replies;
-            } catch (_) {}
+            await _loadReplies(response, page: 1);
           }
         }
       }
@@ -63,6 +64,31 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _loadReplies(entity.PrayerResponse response, {required int page}) async {
+    try {
+      final result = await ref.read(prayerUseCaseProvider).loadReplies(
+            responseId: response.id,
+            page: page,
+          );
+      if (page == 1) {
+        response.replies = result;
+      } else {
+        response.replies.addAll(result);
+      }
+      _replyPages[response.id] = page;
+      // loadReplies returns a list, check if we got fewer than expected
+      _replyHasNext[response.id] = result.isNotEmpty && result.length >= 10;
+    } catch (_) {}
+  }
+
+  Future<void> _loadMoreReplies(entity.PrayerResponse response) async {
+    final currentPage = _replyPages[response.id] ?? 1;
+    final hasNext = _replyHasNext[response.id] ?? false;
+    if (!hasNext) return;
+    await _loadReplies(response, page: currentPage + 1);
+    if (mounted) setState(() {});
   }
 
   Future<void> _deletePrayer() async {
@@ -96,37 +122,104 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
       context: context,
       builder: (_) => CupertinoActionSheet(
         title: const Text('신고 사유를 선택해주세요'),
-        actions: ReportReasonType.values.map((reason) {
-          return CupertinoActionSheetAction(
-            onPressed: () async {
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
               Navigator.of(context).pop();
-              try {
-                final prayerUseCase = ref.read(prayerUseCaseProvider);
-                if (prayerRequestId != null) {
-                  await prayerUseCase.reportPrayer(
-                    prayerRequestId: prayerRequestId,
-                    reasonType: reason,
-                  );
-                } else if (prayerResponseId != null) {
-                  await prayerUseCase.reportPrayerResponse(
-                    prayerResponseId: prayerResponseId,
-                    reasonType: reason,
-                  );
-                }
-                _showAlert('신고 완료', '신고가 접수되었습니다.');
-              } catch (e) {
-                _showAlert('신고 실패', e.toString());
-              }
+              _submitReport(prayerRequestId: prayerRequestId,
+                  prayerResponseId: prayerResponseId,
+                  reason: ReportReasonType.inappropriateContent);
             },
-            child: Text(reason.displayName),
-          );
-        }).toList(),
+            child: Text(ReportReasonType.inappropriateContent.displayName),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _submitReport(prayerRequestId: prayerRequestId,
+                  prayerResponseId: prayerResponseId,
+                  reason: ReportReasonType.spam);
+            },
+            child: Text(ReportReasonType.spam.displayName),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _showReportDetailDialog(
+                  prayerRequestId: prayerRequestId,
+                  prayerResponseId: prayerResponseId);
+            },
+            child: Text(ReportReasonType.other.displayName),
+          ),
+        ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('취소'),
         ),
       ),
     );
+  }
+
+  void _showReportDetailDialog({int? prayerRequestId, int? prayerResponseId}) {
+    final controller = TextEditingController();
+    showCupertinoDialog(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('신고 사유 입력'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: CupertinoTextField(
+            controller: controller,
+            placeholder: '신고 사유를 입력해주세요',
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('취소'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _submitReport(
+                prayerRequestId: prayerRequestId,
+                prayerResponseId: prayerResponseId,
+                reason: ReportReasonType.other,
+                reasonDetail: controller.text.trim(),
+              );
+            },
+            child: const Text('신고'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _submitReport({
+    int? prayerRequestId,
+    int? prayerResponseId,
+    required ReportReasonType reason,
+    String? reasonDetail,
+  }) async {
+    try {
+      final prayerUseCase = ref.read(prayerUseCaseProvider);
+      if (prayerRequestId != null) {
+        await prayerUseCase.reportPrayer(
+          prayerRequestId: prayerRequestId,
+          reasonType: reason,
+          reasonDetail: reasonDetail,
+        );
+      } else if (prayerResponseId != null) {
+        await prayerUseCase.reportPrayerResponse(
+          prayerResponseId: prayerResponseId,
+          reasonType: reason,
+          reasonDetail: reasonDetail,
+        );
+      }
+      _showAlert('신고 완료', '신고가 접수되었습니다.');
+    } catch (e) {
+      _showAlert('신고 실패', e.toString());
+    }
   }
 
   void _showBlockConfirm({required int userId, required String userName}) {
@@ -649,6 +742,19 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
             children: response.replies
                 .map((reply) => _replyCard(reply, response))
                 .toList(),
+          ),
+        // 대댓글 더보기
+        if (_replyHasNext[response.id] == true)
+          GestureDetector(
+            onTap: () => _loadMoreReplies(response),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('답글 더보기',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade500,
+                      decoration: TextDecoration.underline)),
+            ),
           ),
         const SizedBox(height: 4),
       ],

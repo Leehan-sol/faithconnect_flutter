@@ -10,8 +10,9 @@ import 'reset_password_view.dart';
 /// iOS FindPasswordView.swift 대응
 class FindPasswordView extends ConsumerStatefulWidget {
   final String? initialEmail;
+  final VoidCallback? onResetSuccess;
 
-  const FindPasswordView({super.key, this.initialEmail});
+  const FindPasswordView({super.key, this.initialEmail, this.onResetSuccess});
 
   @override
   ConsumerState<FindPasswordView> createState() => _FindPasswordViewState();
@@ -50,7 +51,10 @@ class _FindPasswordViewState extends ConsumerState<FindPasswordView> {
       _showAlert('전송 완료', '인증 코드가 이메일로 전송되었습니다.', onConfirm: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ResetPasswordView(email: email),
+            builder: (_) => ResetPasswordView(
+              email: email,
+              onSuccess: widget.onResetSuccess,
+            ),
           ),
         );
       });

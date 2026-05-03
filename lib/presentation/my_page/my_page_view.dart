@@ -1,7 +1,9 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/storage/user_session.dart';
@@ -11,11 +13,26 @@ import '../policy/policy_web_view.dart';
 import '../find_password/find_password_view.dart';
 
 /// iOS MyPageView 대응
-class MyPageView extends ConsumerWidget {
+class MyPageView extends ConsumerStatefulWidget {
   const MyPageView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MyPageView> createState() => _MyPageViewState();
+}
+
+class _MyPageViewState extends ConsumerState<MyPageView> {
+  String _version = '';
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _version = info.version);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(userSessionProvider);
 
     return Scaffold(
@@ -68,7 +85,15 @@ class MyPageView extends ConsumerWidget {
                   title: '비밀번호 변경',
                   onTap: () {
                     Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => FindPasswordView(initialEmail: session.email),
+                      builder: (_) => FindPasswordView(
+                        initialEmail: session.email,
+                        onResetSuccess: () async {
+                          try {
+                            await ref.read(authUseCaseProvider).logout();
+                          } catch (_) {}
+                          ref.read(userSessionProvider.notifier).logout();
+                        },
+                      ),
                     ));
                   },
                 ),
@@ -92,6 +117,42 @@ class MyPageView extends ConsumerWidget {
                 ),
               ],
             ),
+
+            // 개발자 도구 (DEBUG 전용)
+            if (kDebugMode) ...[
+              _sectionTitle('개발자 도구'),
+              _settingsCard(
+                children: [
+                  _settingsItem(
+                    icon: Icons.notifications_active,
+                    color: AppColors.customBlue1,
+                    title: '푸시 알림 테스트',
+                    onTap: () async {
+                      try {
+                        final token = await FirebaseMessaging.instance.getToken();
+                        if (context.mounted) {
+                          showCupertinoDialog(
+                            context: context,
+                            builder: (dialogContext) => CupertinoAlertDialog(
+                              title: const Text('FCM 토큰'),
+                              content: SelectableText(token ?? '토큰 없음'),
+                              actions: [
+                                CupertinoDialogAction(
+                                  onPressed: () => Navigator.of(dialogContext).pop(),
+                                  child: const Text('확인'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint('FCM 토큰 조회 실패: $e');
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
 
             // 정보
             _sectionTitle('정보'),
@@ -139,7 +200,7 @@ class MyPageView extends ConsumerWidget {
               padding: const EdgeInsets.only(top: 50, bottom: 30),
               child: Column(
                 children: [
-                  Text('FaithConnect v1.0.0',
+                  Text('FaithConnect v$_version',
                       style: TextStyle(
                           fontSize: 12, color: Colors.grey.shade500)),
                   const SizedBox(height: 10),

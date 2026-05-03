@@ -44,6 +44,10 @@ class _ResetPasswordViewState extends ConsumerState<ResetPasswordView> {
       _showAlert('입력 오류', '새 비밀번호를 입력해주세요.');
       return;
     }
+    if (!RegExp(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$').hasMatch(newPassword)) {
+      _showAlert('입력 오류', '비밀번호는 영문, 숫자 포함 8자 이상이어야 합니다.');
+      return;
+    }
     if (newPassword != confirmPassword) {
       _showAlert('입력 오류', '비밀번호가 일치하지 않습니다.');
       return;

@@ -130,33 +130,45 @@ class _FindIdViewState extends ConsumerState<FindIdView> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '가입된 이메일을 찾았습니다',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade700,
+          const SizedBox(height: 20),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(40),
             ),
+            child: const Icon(Icons.check, size: 40, color: Colors.green),
           ),
           const SizedBox(height: 30),
+          const Text('이메일을 찾았습니다',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text('입력하신 정보와 일치하는 이메일입니다',
+              style: TextStyle(color: Colors.grey.shade600)),
+          const SizedBox(height: 40),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Text(
-              _foundEmail!,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('등록된 이메일',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                const SizedBox(height: 10),
+                Text(_foundEmail!,
+                    style: const TextStyle(fontSize: 16)),
+              ],
             ),
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 40),
           ActionButton(
-            title: '로그인하러 가기',
+            title: '로그인하기',
             foregroundColor: Colors.white,
             backgroundColor: AppColors.customBlue1,
             onPressed: () => Navigator.of(context).pop(),
