@@ -1,5 +1,5 @@
 name: faithconnect_flutter
-description: "A new Flutter project."
+description: "FaithConnect — 기도 요청·응답을 공유하는 신앙 커뮤니티 앱 (Flutter)."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
