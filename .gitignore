@@ -55,3 +55,11 @@ app.*.map.json
 **/google-services.json
 .firebaserc
 firebase.json
+
+# Android release 서명 키 — 절대 커밋 금지
+# keystore 분실/유출 시 Play Console에서 reset 요청 필요 (며칠 소요)
+# Dart 난독화 심볼/디버그 정보도 함께 차단
+**/key.properties
+**/*.jks
+**/*.keystore
+build/symbols/
