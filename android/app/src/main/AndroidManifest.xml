@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Android 13+ (API 33+) 알림 권한. firebase_messaging requestPermission 호출 시 시스템 다이얼로그 표시 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
-        android:label="faithconnect_flutter"
+        android:label="FaithConnect"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -30,6 +33,19 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- FCM 기본 알림 아이콘 (흰색 실루엣 — Android 5+ 필수) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+        <!-- FCM 기본 알림 색상 (시스템이 흰색 실루엣에 틴트로 적용) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color" />
+        <!-- FCM 기본 알림 채널 (Android 8+ 필수). MainActivity에서 채널 생성 코드도 필요 -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="default_channel" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
