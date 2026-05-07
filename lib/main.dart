@@ -3,11 +3,21 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'app/router.dart';
 import 'core/providers.dart';
 import 'data/storage/user_session.dart';
-import 'presentation/prayer_detail/prayer_detail_view.dart';
 import 'presentation/splash/splash_view.dart';
+
+/// 라우터/로그인이 준비된 시점에 GoRouter로 location push.
+/// addPostFrameCallback으로 첫 빌드 완료 보장 → currentContext가 null인 race 방지.
+void _pushDeepLink(String location) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx == null) return;
+    GoRouter.of(ctx).push(location);
+  });
+}
 
 /// 백그라운드 메시지 핸들러 (top-level function 필수)
 @pragma('vm:entry-point')
@@ -32,6 +42,14 @@ class NoOverscrollBehavior extends MaterialScrollBehavior {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 릴리즈 빌드에서 debugPrint 출력 차단.
+  // Flutter의 debugPrint는 이름과 달리 릴리즈에서도 logcat/console에 그대로 찍힘.
+  // FCM 토큰, API 응답, 스택트레이스 등이 운영 단말 logcat에 노출되는 것 방지.
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
+
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(const ProviderScope(child: FaithConnectApp()));
@@ -88,6 +106,19 @@ class _MainAppState extends ConsumerState<_MainApp> {
   @override
   void initState() {
     super.initState();
+    // 로그인 상태 전환에 따라 펜딩 딥링크 처리.
+    // - false → true (로그인): 5분 TTL 내라면 consume, 만료면 폐기 (PendingDeepLink가 알아서 처리)
+    // - true → false (로그아웃): 큐 정리. 빠른 재로그인 시 stale 의도 발화 방지.
+    ref.listenManual<UserSessionState>(userSessionProvider, (prev, next) {
+      final wasLoggedIn = prev?.isLoggedIn ?? false;
+      if (!wasLoggedIn && next.isLoggedIn) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          PendingDeepLink.consume();
+        });
+      } else if (wasLoggedIn && !next.isLoggedIn) {
+        PendingDeepLink.clear();
+      }
+    });
     _tryAutoLogin();
     _setupFCM();
   }
@@ -124,17 +155,20 @@ class _MainAppState extends ConsumerState<_MainApp> {
     // 포그라운드 메시지 수신
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('포그라운드 메시지: ${message.notification?.title}');
-      if (message.notification != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message.notification!.body ?? ''),
-            action: SnackBarAction(
-              label: '보기',
-              onPressed: () => _handleMessageTap(message.data),
-            ),
+      final notification = message.notification;
+      if (notification == null) return;
+      // _MainAppState의 context는 MaterialApp.router 부모 → ScaffoldMessenger.of(context) 사용 불가.
+      // MaterialApp.router에 주입한 글로벌 scaffoldMessengerKey로 우회.
+      // currentState가 null이면(아직 마운트 안 됨) 조용히 무시.
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text(notification.body ?? ''),
+          action: SnackBarAction(
+            label: '보기',
+            onPressed: () => _handleMessageTap(message.data),
           ),
-        );
-      }
+        ),
+      );
     });
 
     // 알림 탭 시 (앱이 백그라운드에서 열릴 때)
@@ -151,20 +185,18 @@ class _MainAppState extends ConsumerState<_MainApp> {
 
   void _handleMessageTap(Map<String, dynamic> data) {
     final prayerRequestId = data['prayerRequestId'];
-    if (prayerRequestId != null) {
-      final id = int.tryParse(prayerRequestId.toString());
-      if (id != null && mounted) {
-        // navigatorKey를 통해 기도 상세로 이동
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => PrayerDetailView(prayerRequestId: id),
-              ),
-            );
-          }
-        });
-      }
+    if (prayerRequestId == null) return;
+    final id = int.tryParse(prayerRequestId.toString());
+    if (id == null) return;
+
+    final location = '/prayer/$id';
+    // 로그인 상태에 따라 즉시 push 또는 큐잉.
+    // 콜드 스타트 시 _setupFCM과 _tryAutoLogin이 병렬 실행되므로 여기서 isLoggedIn이 false일 수 있음
+    // → enqueue 후 로그인 전환 listener가 consume.
+    if (ref.read(userSessionProvider).isLoggedIn) {
+      _pushDeepLink(location);
+    } else {
+      PendingDeepLink.enqueue(location);
     }
   }
 
@@ -177,6 +209,8 @@ class _MainAppState extends ConsumerState<_MainApp> {
       theme: widget.theme,
       scrollBehavior: NoOverscrollBehavior(),
       routerConfig: router,
+      // 글로벌 SnackBar 핸들 — FCM 포그라운드 메시지 등 트리 외부에서 사용.
+      scaffoldMessengerKey: scaffoldMessengerKey,
     );
   }
 }
