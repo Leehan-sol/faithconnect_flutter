@@ -23,7 +23,7 @@ if (hasKeystoreConfig) {
 }
 
 android {
-    namespace = "com.hansol.faithconnect_flutter"
+    namespace = "com.reboot.faithconnect"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -37,7 +37,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.hansol.faithconnect_flutter"
+        applicationId = "com.reboot.faithconnect"
         minSdk = flutter.minSdkVersion       // Flutter 기본값 (현재 24, Android 7)
 
         // Play Store 정책으로 신규 앱은 targetSdk 35 필수 (2025-08~), 업데이트도 35 필수 (2025-11~).

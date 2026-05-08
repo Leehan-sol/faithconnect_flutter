@@ -1,0 +1,27 @@
+{
+  // iOS의 Scheme(Run) 역할.
+  // Cursor/VSCode 좌측 Run & Debug 패널에서 드롭다운으로 선택 → F5.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "FaithConnect (dev)",
+      "request": "launch",
+      "type": "dart",
+      "args": ["--dart-define-from-file=env/dev.json"]
+    },
+    {
+      "name": "FaithConnect (dev · profile)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "args": ["--dart-define-from-file=env/dev.json"]
+    },
+    {
+      "name": "FaithConnect (release)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "args": ["--dart-define-from-file=env/release.json"]
+    }
+  ]
+}

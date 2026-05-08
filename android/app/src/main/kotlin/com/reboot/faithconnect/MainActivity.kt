@@ -1,4 +1,4 @@
-package com.hansol.faithconnect_flutter
+package com.reboot.faithconnect
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
