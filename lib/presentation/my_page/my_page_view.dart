@@ -8,6 +8,7 @@ import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/storage/user_session.dart';
 import '../block_list/block_list_view.dart';
+import 'delete_account_view.dart';
 import '../inquiry/inquiry_view.dart';
 import '../policy/policy_web_view.dart';
 import '../find_password/find_password_view.dart';
@@ -365,45 +366,8 @@ class _MyPageViewState extends ConsumerState<MyPageView> {
   }
 
   void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) {
-    showCupertinoDialog(
-      context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('회원탈퇴'),
-        content: const Text('정말 탈퇴하시겠습니까?\n모든 데이터가 삭제됩니다.'),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('취소'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () async {
-              Navigator.of(dialogContext).pop();
-              try {
-                await ref.read(authUseCaseProvider).deleteAccount();
-                ref.read(userSessionProvider.notifier).logout();
-              } catch (e) {
-                if (context.mounted) {
-                  showCupertinoDialog(
-                    context: context,
-                    builder: (errContext) => CupertinoAlertDialog(
-                      title: const Text('회원탈퇴 실패'),
-                      content: Text(e.toString()),
-                      actions: [
-                        CupertinoDialogAction(
-                          onPressed: () => Navigator.of(errContext).pop(),
-                          child: const Text('확인'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('탈퇴'),
-          ),
-        ],
-      ),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const DeleteAccountView()),
     );
   }
 }
