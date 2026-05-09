@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
@@ -121,6 +122,7 @@ class _MyPrayerViewState extends ConsumerState<MyPrayerView> {
                         color: Colors.red,
                         child: const Icon(Icons.delete, color: Colors.white),
                       ),
+                      confirmDismiss: (_) => _confirmDelete(),
                       onDismissed: (_) async {
                         try {
                           await ref
@@ -166,11 +168,13 @@ class _MyPrayerViewState extends ConsumerState<MyPrayerView> {
                         color: Colors.red,
                         child: const Icon(Icons.delete, color: Colors.white),
                       ),
+                      confirmDismiss: (_) => _confirmDelete(),
                       onDismissed: (_) async {
                         try {
                           await ref
                               .read(prayerUseCaseProvider)
-                              .deletePrayerResponse(response.id);
+                              .deletePrayerResponse(response.id,
+                                  prayerRequestId: response.prayerRequestId);
                           setState(() => _participatedPrayers
                               .removeWhere((r) => r.id == response.id));
                         } catch (_) {}
@@ -184,6 +188,27 @@ class _MyPrayerViewState extends ConsumerState<MyPrayerView> {
         ),
       ),
     );
+  }
+
+  Future<bool> _confirmDelete() async {
+    return await showCupertinoDialog<bool>(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: const Text('삭제'),
+        content: const Text('삭제하시겠습니까?'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    ) ?? false;
   }
 
   Widget _sectionHeader(String title, {VoidCallback? onMore}) {
@@ -336,6 +361,27 @@ class _FullListViewState extends ConsumerState<_FullListView> {
     _isLoading = false;
   }
 
+  Future<bool> _confirmDelete() async {
+    return await showCupertinoDialog<bool>(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: const Text('삭제'),
+        content: const Text('삭제하시겠습니까?'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
   Future<void> _refresh() async {
     _items.clear();
     _currentPage = 1;
@@ -372,64 +418,101 @@ class _FullListViewState extends ConsumerState<_FullListView> {
             final prayer = item as Prayer;
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: PrayerRow(
-                prayer: prayer,
-                onTap: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          PrayerDetailView(prayerRequestId: prayer.id),
-                    ),
-                  );
+              child: Dismissible(
+                key: Key('prayer_${prayer.id}'),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  color: Colors.red,
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                confirmDismiss: (_) => _confirmDelete(),
+                onDismissed: (_) async {
+                  try {
+                    await ref.read(prayerUseCaseProvider).deletePrayer(prayer.id);
+                    setState(() => _items.removeWhere((p) => (p as Prayer).id == prayer.id));
+                  } catch (_) {}
                 },
+                child: PrayerRow(
+                  prayer: prayer,
+                  onTap: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            PrayerDetailView(prayerRequestId: prayer.id),
+                      ),
+                    );
+                  },
+                ),
               ),
             );
           } else {
             final response = item as MyResponse;
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: GestureDetector(
-                onTap: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => PrayerDetailView(
-                          prayerRequestId: response.prayerRequestId),
-                    ),
-                  );
+              child: Dismissible(
+                key: Key('response_${response.id}'),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  color: Colors.red,
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                confirmDismiss: (_) => _confirmDelete(),
+                onDismissed: (_) async {
+                  try {
+                    await ref.read(prayerUseCaseProvider).deletePrayerResponse(
+                      response.id,
+                      prayerRequestId: response.prayerRequestId,
+                    );
+                    setState(() => _items.removeWhere((r) => (r as MyResponse).id == response.id));
+                  } catch (_) {}
                 },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+                child: GestureDetector(
+                  onTap: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PrayerDetailView(
+                            prayerRequestId: response.prayerRequestId),
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('"${response.prayerRequestTitle}"',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontSize: 13, color: Colors.grey.shade600)),
-                      const SizedBox(height: 15),
-                      Text(response.message,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 15),
-                      Text(timeAgo(response.createdAt),
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.grey.shade500)),
-                    ],
+                    );
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('"${response.prayerRequestTitle}"',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.grey.shade600)),
+                        const SizedBox(height: 15),
+                        Text(response.message,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 15),
+                        Text(timeAgo(response.createdAt),
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey.shade500)),
+                      ],
+                    ),
                   ),
                 ),
               ),
