@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
@@ -40,6 +41,38 @@ class _InquiryViewState extends ConsumerState<InquiryView> {
       _titleController.text.isNotEmpty &&
       _contentController.text.isNotEmpty &&
       _emailController.text.isNotEmpty;
+
+  bool get _hasAnyInput =>
+      _titleController.text.isNotEmpty ||
+      _contentController.text.isNotEmpty;
+
+  void _handleCancel() {
+    if (_hasAnyInput) {
+      showCupertinoDialog(
+        context: context,
+        builder: (_) => CupertinoAlertDialog(
+          title: const Text('문의 취소'),
+          content: const Text('작성 중인 내용이 사라집니다.\n취소하시겠습니까?'),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('계속 작성'),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
+              },
+              child: const Text('취소'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
 
   Future<void> _sendInquiry() async {
     if (!_isSendActive) return;
@@ -178,7 +211,7 @@ class _InquiryViewState extends ConsumerState<InquiryView> {
                           title: '취소',
                           foregroundColor: Colors.grey,
                           backgroundColor: Colors.grey.shade200,
-                          onPressed: () => Navigator.of(context).pop(),
+                          onPressed: _handleCancel,
                         ),
                       ),
                       const SizedBox(width: 10),

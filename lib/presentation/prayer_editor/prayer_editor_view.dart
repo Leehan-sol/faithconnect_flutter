@@ -185,6 +185,7 @@ class _PrayerEditorViewState extends ConsumerState<PrayerEditorView> {
                   expands: true,
                   maxLength: 2000,
                   textAlignVertical: TextAlignVertical.top,
+                  onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                     hintText: '기도 내용을 입력하세요',
                     hintStyle: TextStyle(color: Colors.grey.shade400),
@@ -194,7 +195,20 @@ class _PrayerEditorViewState extends ConsumerState<PrayerEditorView> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '${_contentController.text.length} / 2000',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _contentController.text.length >= 2000
+                        ? Colors.red
+                        : Colors.grey,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
 
               // 안내 박스
               Container(

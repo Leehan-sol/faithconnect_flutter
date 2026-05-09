@@ -8,6 +8,7 @@ import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/storage/user_session.dart';
 import '../block_list/block_list_view.dart';
+import '../login/login_notifier.dart';
 import 'delete_account_view.dart';
 import '../inquiry/inquiry_view.dart';
 import '../policy/policy_web_view.dart';
@@ -356,6 +357,7 @@ class _MyPageViewState extends ConsumerState<MyPageView> {
                 } catch (_) {}
                 await authUseCase.logout();
                 ref.read(userSessionProvider.notifier).logout();
+                ref.invalidate(loginNotifierProvider);
               } catch (_) {}
             },
             child: const Text('확인'),

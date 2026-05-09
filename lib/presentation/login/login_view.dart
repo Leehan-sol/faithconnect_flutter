@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../components/labeled_text_field.dart';
+import '../inquiry/inquiry_view.dart';
 import '../components/action_button.dart';
 import '../components/loading_dialog.dart';
 import 'login_notifier.dart';
@@ -207,7 +208,11 @@ class _LoginViewState extends ConsumerState<LoginView> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const InquiryView()),
+                    );
+                  },
                   child: Text(
                     '문의하기',
                     style: TextStyle(

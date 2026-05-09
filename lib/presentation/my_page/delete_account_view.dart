@@ -5,6 +5,7 @@ import '../../core/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/storage/user_session.dart';
 import '../components/action_button.dart';
+import '../login/login_notifier.dart';
 
 class DeleteAccountView extends ConsumerStatefulWidget {
   const DeleteAccountView({super.key});
@@ -42,6 +43,7 @@ class _DeleteAccountViewState extends ConsumerState<DeleteAccountView> {
               onPressed: () {
                 Navigator.of(context).pop();
                 ref.read(userSessionProvider.notifier).logout();
+                ref.invalidate(loginNotifierProvider);
               },
               child: const Text('확인'),
             ),
