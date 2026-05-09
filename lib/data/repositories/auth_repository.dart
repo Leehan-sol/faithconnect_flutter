@@ -194,7 +194,7 @@ class AuthRepository implements AuthRepositoryInterface {
   Future<void> registerPushToken({required String deviceToken}) async {
     await _apiClient.postEmpty(
       ApiEndpoints.pushToken,
-      data: {'deviceToken': deviceToken},
+      data: {'deviceToken': deviceToken, 'platform': 'ANDROID'},
     );
   }
 

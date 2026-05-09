@@ -45,7 +45,7 @@
         <!-- FCM 기본 알림 채널 (Android 8+ 필수). MainActivity에서 채널 생성 코드도 필요 -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="default_channel" />
+            android:value="faithconnect_push" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

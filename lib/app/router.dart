@@ -139,6 +139,7 @@ class _RouterNotifier extends ChangeNotifier {
   bool get isLoggedIn => _isLoggedIn;
 
   _RouterNotifier(Ref ref) {
+    _isLoggedIn = ref.read(userSessionProvider).isLoggedIn;
     ref.listen(userSessionProvider, (prev, next) {
       final newLoggedIn = next.isLoggedIn;
       if (_isLoggedIn != newLoggedIn) {

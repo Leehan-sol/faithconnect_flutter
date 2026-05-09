@@ -11,11 +11,10 @@ class SplashView extends StatefulWidget {
   State<SplashView> createState() => _SplashViewState();
 }
 
-class _SplashViewState extends State<SplashView>
-    with TickerProviderStateMixin {
+class _SplashViewState extends State<SplashView> {
   static const _text = 'FaithConnect';
   int _animatedIndex = -1;
-  Timer? _timer;
+  bool _calledComplete = false;
 
   @override
   void initState() {
@@ -23,13 +22,8 @@ class _SplashViewState extends State<SplashView>
     _startAnimation();
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
   void _startAnimation() {
+    // 글자 하나씩 페이드인
     for (int i = 0; i < _text.length; i++) {
       Timer(Duration(milliseconds: i * 100), () {
         if (!mounted) return;
@@ -38,9 +32,25 @@ class _SplashViewState extends State<SplashView>
     }
 
     final totalMs = _text.length * 100 + 1000;
-    _timer = Timer(Duration(milliseconds: totalMs), () {
+
+    // 첫 사이클 완료 시 onComplete 호출
+    if (!_calledComplete) {
+      Timer(Duration(milliseconds: totalMs), () {
+        if (!mounted) return;
+        _calledComplete = true;
+        widget.onComplete?.call();
+      });
+    }
+
+    // 페이드아웃 후 다시 반복
+    Timer(Duration(milliseconds: totalMs), () {
       if (!mounted) return;
-      widget.onComplete?.call();
+      setState(() => _animatedIndex = -1);
+
+      Timer(const Duration(milliseconds: 600), () {
+        if (!mounted) return;
+        _startAnimation();
+      });
     });
   }
 

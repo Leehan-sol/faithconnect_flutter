@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'app/router.dart';
@@ -24,6 +25,38 @@ void _pushDeepLink(String location) {
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   debugPrint('백그라운드 메시지: ${message.messageId}');
+}
+
+/// 로컬 알림 플러그인 (포그라운드 푸시를 상단 시스템 알림으로 표시)
+final FlutterLocalNotificationsPlugin _localNotifications =
+    FlutterLocalNotificationsPlugin();
+
+const _androidChannel = AndroidNotificationChannel(
+  'faithconnect_push',
+  'FaithConnect 알림',
+  description: '기도 응답 알림',
+  importance: Importance.high,
+);
+
+Future<void> _initLocalNotifications() async {
+  const androidSettings = AndroidInitializationSettings('@drawable/ic_notification');
+  const initSettings = InitializationSettings(android: androidSettings);
+
+  await _localNotifications.initialize(
+    settings: initSettings,
+    onDidReceiveNotificationResponse: (details) {
+      final payload = details.payload;
+      if (payload != null) {
+        _pushDeepLink('/prayer/$payload');
+      }
+    },
+  );
+
+  // Android 알림 채널 생성
+  await _localNotifications
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(_androidChannel);
 }
 
 /// Android overscroll 효과 완전 제거 (glow + stretch 모두)
@@ -52,18 +85,56 @@ void main() async {
 
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  await _initLocalNotifications();
   runApp(const ProviderScope(child: FaithConnectApp()));
 }
 
-class FaithConnectApp extends StatefulWidget {
+class FaithConnectApp extends ConsumerStatefulWidget {
   const FaithConnectApp({super.key});
 
   @override
-  State<FaithConnectApp> createState() => _FaithConnectAppState();
+  ConsumerState<FaithConnectApp> createState() => _FaithConnectAppState();
 }
 
-class _FaithConnectAppState extends State<FaithConnectApp> {
-  bool _splashDone = false;
+class _FaithConnectAppState extends ConsumerState<FaithConnectApp> {
+  bool _splashAnimDone = false;
+  bool _autoLoginDone = false;
+
+  bool get _ready => _splashAnimDone && _autoLoginDone;
+
+  @override
+  void initState() {
+    super.initState();
+    _tryAutoLogin();
+  }
+
+  Future<void> _tryAutoLogin() async {
+    debugPrint('자동 로그인 시도...');
+    try {
+      final authUseCase = ref.read(authUseCaseProvider);
+      final hasToken = await authUseCase.hasToken;
+      debugPrint('토큰 존재: $hasToken');
+      if (!hasToken) {
+        if (mounted) setState(() => _autoLoginDone = true);
+        return;
+      }
+
+      final user = await authUseCase.fetchMyInfo();
+      ref.read(userSessionProvider.notifier).login(user);
+      debugPrint('자동 로그인 성공: ${user.nickname}');
+
+      // FCM 토큰 등록
+      try {
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+        if (fcmToken != null) {
+          await authUseCase.registerPushToken(deviceToken: fcmToken);
+        }
+      } catch (_) {}
+    } catch (e) {
+      debugPrint('자동 로그인 실패: $e');
+    }
+    if (mounted) setState(() => _autoLoginDone = true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -79,13 +150,13 @@ class _FaithConnectAppState extends State<FaithConnectApp> {
       ),
     );
 
-    if (!_splashDone) {
+    if (!_ready) {
       return MaterialApp(
         title: 'FaithConnect',
         debugShowCheckedModeBanner: false,
         theme: theme,
         home: SplashView(
-          onComplete: () => setState(() => _splashDone = true),
+          onComplete: () => setState(() => _splashAnimDone = true),
         ),
       );
     }
@@ -119,27 +190,7 @@ class _MainAppState extends ConsumerState<_MainApp> {
         PendingDeepLink.clear();
       }
     });
-    _tryAutoLogin();
     _setupFCM();
-  }
-
-  Future<void> _tryAutoLogin() async {
-    try {
-      final authUseCase = ref.read(authUseCaseProvider);
-      final hasToken = await authUseCase.hasToken;
-      if (!hasToken) return;
-
-      final user = await authUseCase.fetchMyInfo();
-      ref.read(userSessionProvider.notifier).login(user);
-
-      // FCM 토큰 등록
-      try {
-        final fcmToken = await FirebaseMessaging.instance.getToken();
-        if (fcmToken != null) {
-          await authUseCase.registerPushToken(deviceToken: fcmToken);
-        }
-      } catch (_) {}
-    } catch (_) {}
   }
 
   Future<void> _setupFCM() async {
@@ -152,22 +203,28 @@ class _MainAppState extends ConsumerState<_MainApp> {
       sound: true,
     );
 
-    // 포그라운드 메시지 수신
+    // 포그라운드 메시지 수신 → 상단 시스템 알림으로 표시
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('포그라운드 메시지: ${message.notification?.title}');
       final notification = message.notification;
       if (notification == null) return;
-      // _MainAppState의 context는 MaterialApp.router 부모 → ScaffoldMessenger.of(context) 사용 불가.
-      // MaterialApp.router에 주입한 글로벌 scaffoldMessengerKey로 우회.
-      // currentState가 null이면(아직 마운트 안 됨) 조용히 무시.
-      scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text(notification.body ?? ''),
-          action: SnackBarAction(
-            label: '보기',
-            onPressed: () => _handleMessageTap(message.data),
+
+      final prayerRequestId = message.data['prayerRequestId'];
+      _localNotifications.show(
+        id: notification.hashCode,
+        title: notification.title,
+        body: notification.body,
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            _androidChannel.id,
+            _androidChannel.name,
+            channelDescription: _androidChannel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@drawable/ic_notification',
           ),
         ),
+        payload: prayerRequestId,
       );
     });
 

@@ -9,6 +9,7 @@ import '../../domain/entities/prayer.dart';
 import '../../domain/entities/prayer_response.dart' as entity;
 import '../components/action_button.dart';
 import '../prayer_editor/prayer_editor_view.dart';
+import 'components/prayer_heart_animation_view.dart';
 
 class PrayerDetailView extends ConsumerStatefulWidget {
   final int prayerRequestId;
@@ -22,6 +23,7 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
   Prayer? _prayer;
   bool _isLoading = true;
   bool _dataChanged = false;
+  bool _showHeartAnimation = false;
 
   // 대댓글 페이지네이션 (iOS replyPages/replyHasNext 대응)
   final Map<int, int> _replyPages = {};
@@ -60,7 +62,15 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
           }
         }
       }
-      if (mounted) setState(() { _prayer = prayer; _isLoading = false; });
+      if (mounted) {
+        setState(() {
+          _prayer = prayer;
+          _isLoading = false;
+          if (prayer.isMine && prayer.participationCount > 0) {
+            _showHeartAnimation = true;
+          }
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -639,7 +649,9 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
             ? const Center(child: CircularProgressIndicator())
             : _prayer == null
                 ? const Center(child: Text('기도를 불러올 수 없습니다'))
-                : Column(
+                : Stack(
+                    children: [
+                      Column(
                     children: [
                       Expanded(
                         child: GestureDetector(
@@ -696,8 +708,19 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
                             onPressed: () => _showResponseSheet(),
                           ),
                         ),
-                    ],
-                  ),
+                      ],
+                    ),
+                    if (_showHeartAnimation)
+                      Positioned.fill(
+                        child: PrayerHeartAnimationView(
+                          participationCount: _prayer!.participationCount,
+                          onFinished: () {
+                            if (mounted) setState(() => _showHeartAnimation = false);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
       ),
     );
   }

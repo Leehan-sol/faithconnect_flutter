@@ -2,6 +2,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
+import '../../data/network/api_error.dart';
 import '../../data/storage/user_session.dart';
 import 'login_state.dart';
 
@@ -62,10 +63,15 @@ class LoginNotifier extends Notifier<LoginState> {
         final fcmToken = await FirebaseMessaging.instance.getToken();
         if (fcmToken != null) {
           await authUseCase.registerPushToken(deviceToken: fcmToken);
+          debugPrint('FCM 토큰: $fcmToken');
           debugPrint('FCM 토큰 등록 완료');
         }
       } catch (e) {
-        debugPrint('FCM 토큰 등록 실패: $e');
+        if (e is ApiError) {
+          debugPrint('FCM 토큰 등록 실패: status=${e.statusCode}, code=${e.errorCode}, msg=${e.message}');
+        } else {
+          debugPrint('FCM 토큰 등록 실패: ${e.runtimeType}: $e');
+        }
       }
 
       state = state.copyWith(isLoading: false);
