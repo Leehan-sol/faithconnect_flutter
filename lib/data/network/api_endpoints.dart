@@ -39,7 +39,7 @@ class ApiEndpoints {
   static const String blocks = '$_apiPath/blocks';
 
   // Push
-  static const String pushToken = '$_apiPath/push/token';
+  static const String pushToken = '$_apiPath/push-token';
 
   // Inquiry
   static const String inquiry = '$_apiPath/inquiry';
