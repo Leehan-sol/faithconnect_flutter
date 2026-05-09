@@ -39,7 +39,9 @@ class HomeNotifier extends Notifier<HomeState> {
             state.prayers.indexWhere((p) => p.id == r.prayerRequestId);
         if (idx != -1) {
           final updated = List.of(state.prayers);
-          updated[idx].participationCount += 1;
+          updated[idx] = updated[idx].copyWith(
+            participationCount: updated[idx].participationCount + 1,
+          );
           state = state.copyWith(prayers: updated);
         }
       case ResponseDeleted(prayerRequestId: final prayerRequestId):
@@ -48,7 +50,9 @@ class HomeNotifier extends Notifier<HomeState> {
               state.prayers.indexWhere((p) => p.id == prayerRequestId);
           if (idx != -1) {
             final updated = List.of(state.prayers);
-            updated[idx].participationCount -= 1;
+            updated[idx] = updated[idx].copyWith(
+              participationCount: updated[idx].participationCount - 1,
+            );
             state = state.copyWith(prayers: updated);
           }
         }

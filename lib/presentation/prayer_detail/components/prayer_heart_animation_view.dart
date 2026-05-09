@@ -56,8 +56,8 @@ class _PrayerHeartAnimationViewState extends State<PrayerHeartAnimationView> {
         x: 0.1 + rng.nextDouble() * 0.8,
         y: 0.15 + rng.nextDouble() * 0.7,
         size: 12 + rng.nextDouble() * 10,
-        duration: 1.2 + rng.nextDouble() * 0.6,
-        delay: i * 0.08 + rng.nextDouble() * 0.04,
+        duration: 0.6 + rng.nextDouble() * 0.3,
+        delay: i * 0.05 + rng.nextDouble() * 0.02,
         color: _heartColors[rng.nextInt(_heartColors.length)],
       );
     });
@@ -65,15 +65,15 @@ class _PrayerHeartAnimationViewState extends State<PrayerHeartAnimationView> {
   }
 
   Future<void> _runAnimation() async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
     setState(() => _showText = true);
 
-    await Future.delayed(const Duration(milliseconds: 700));
+    await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
     setState(() => _fadeOut = true);
 
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 250));
     if (!mounted) return;
     widget.onFinished();
   }

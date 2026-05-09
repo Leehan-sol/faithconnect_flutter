@@ -99,6 +99,9 @@ class PrayerUseCase {
   Future<PrayerResponse> writePrayerResponse({
     required int prayerRequestId,
     required String message,
+    String prayerRequestTitle = '',
+    int categoryId = 0,
+    String categoryName = '',
   }) async {
     final dto = await _repository.writePrayerResponse(
       prayerRequestId: prayerRequestId,
@@ -108,9 +111,9 @@ class PrayerUseCase {
     _eventBus.fire(ResponseAdded(MyResponse(
       id: response.id,
       prayerRequestId: response.prayerRequestId,
-      prayerRequestTitle: '',
-      categoryId: 0,
-      categoryName: '',
+      prayerRequestTitle: prayerRequestTitle,
+      categoryId: categoryId,
+      categoryName: categoryName,
       message: response.message,
       createdAt: response.createdAt,
     )));
@@ -138,12 +141,28 @@ class PrayerUseCase {
   Future<PrayerResponse> writeReply({
     required int responseId,
     required String message,
+    int? prayerRequestId,
+    String prayerRequestTitle = '',
+    int categoryId = 0,
+    String categoryName = '',
   }) async {
     final dto = await _repository.writeReply(
       responseId: responseId,
       message: message,
     );
-    return _responseFromDto(dto);
+    final reply = _responseFromDto(dto);
+    if (prayerRequestId != null) {
+      _eventBus.fire(ResponseAdded(MyResponse(
+        id: reply.id,
+        prayerRequestId: prayerRequestId,
+        prayerRequestTitle: prayerRequestTitle,
+        categoryId: categoryId,
+        categoryName: categoryName,
+        message: reply.message,
+        createdAt: reply.createdAt,
+      )));
+    }
+    return reply;
   }
 
   Future<List<PrayerResponse>> loadReplies({

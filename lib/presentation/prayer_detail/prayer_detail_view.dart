@@ -34,6 +34,16 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
   final _replyController = TextEditingController();
   final _replyFocusNode = FocusNode();
 
+  // 대댓글 인라인 수정 상태
+  entity.PrayerResponse? _editingReply;
+  entity.PrayerResponse? _editingReplyParent;
+  final _editReplyController = TextEditingController();
+  final _editReplyFocusNode = FocusNode();
+
+  // 스크롤
+  final _scrollController = ScrollController();
+  final Map<int, GlobalKey> _responseKeys = {};
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +54,9 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
   void dispose() {
     _replyController.dispose();
     _replyFocusNode.dispose();
+    _editReplyController.dispose();
+    _editReplyFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -250,6 +263,7 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
               try {
                 await ref.read(prayerUseCaseProvider).blockUser(userId);
                 _dataChanged = true;
+                _loadDetail();
                 _showAlert('차단 완료', '$userName님을 차단했습니다.');
               } catch (e) {
                 _showAlert('차단 실패', e.toString());
@@ -422,21 +436,26 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
                                               updated.message;
                                         }
                                       });
+                                      if (mounted) Navigator.of(ctx).pop();
                                     } else {
                                       final response = await ref
                                           .read(prayerUseCaseProvider)
                                           .writePrayerResponse(
                                             prayerRequestId: _prayer!.id,
                                             message: controller.text.trim(),
+                                            prayerRequestTitle: _prayer!.title,
+                                            categoryId: _prayer!.categoryId,
+                                            categoryName: _prayer!.categoryName,
                                           );
                                       _dataChanged = true;
+                                      if (mounted) Navigator.of(ctx).pop();
                                       setState(() {
                                         _prayer!.responses ??= [];
                                         _prayer!.responses!.add(response);
                                         _prayer!.participationCount += 1;
                                       });
+                                      _scrollToBottom(delayMs: 400);
                                     }
-                                    if (mounted) Navigator.of(ctx).pop();
                                   } catch (e) {
                                     if (mounted) Navigator.of(ctx).pop();
                                     _showAlert(
@@ -588,6 +607,133 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
     );
   }
 
+  void _scrollToBottom({int delayMs = 100}) {
+    Future.delayed(Duration(milliseconds: delayMs), () {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  void _scrollToResponse(int responseId) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final key = _responseKeys[responseId];
+      if (key?.currentContext != null) {
+        Scrollable.ensureVisible(
+          key!.currentContext!,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        );
+      }
+    });
+  }
+
+  // ==================== 더보기 (대댓글) ====================
+  void _showReplyOptions(entity.PrayerResponse reply, entity.PrayerResponse parent) {
+    final actions = reply.isMine
+        ? [
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _startEditReply(reply, parent);
+              },
+              child: const Text('수정'),
+            ),
+            CupertinoActionSheetAction(
+              isDestructiveAction: true,
+              onPressed: () async {
+                Navigator.of(context).pop();
+                try {
+                  await ref
+                      .read(prayerUseCaseProvider)
+                      .deletePrayerResponse(reply.id, prayerRequestId: _prayer!.id);
+                  _dataChanged = true;
+                  setState(() {
+                    parent.replies.removeWhere((r) => r.id == reply.id);
+                    parent.replyCount -= 1;
+                    _prayer!.participationCount -= 1;
+                  });
+                } catch (e) {
+                  _showAlert('삭제 실패', e.toString());
+                }
+              },
+              child: const Text('삭제'),
+            ),
+          ]
+        : [
+            CupertinoActionSheetAction(
+                isDestructiveAction: true,
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _showReportSheet(prayerResponseId: reply.id);
+                },
+                child: const Text('신고')),
+            CupertinoActionSheetAction(
+                isDestructiveAction: true,
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _showBlockConfirm(userId: reply.userId, userName: reply.userName);
+                },
+                child: const Text('차단')),
+          ];
+
+    showCupertinoModalPopup(
+      context: context,
+      builder: (_) => CupertinoActionSheet(
+        actions: actions,
+        cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소')),
+      ),
+    );
+  }
+
+  void _startEditReply(entity.PrayerResponse reply, entity.PrayerResponse parent) {
+    setState(() {
+      _editingReply = reply;
+      _editingReplyParent = parent;
+      _editReplyController.text = reply.message;
+      _replyingTo = null;
+      _replyController.clear();
+    });
+    _editReplyFocusNode.requestFocus();
+  }
+
+  void _cancelEditReply() {
+    setState(() {
+      _editingReply = null;
+      _editingReplyParent = null;
+      _editReplyController.clear();
+    });
+  }
+
+  Future<void> _sendEditedReply() async {
+    if (_editingReply == null || _editReplyController.text.trim().isEmpty) return;
+    try {
+      final updated = await ref.read(prayerUseCaseProvider).updatePrayerResponse(
+            responseId: _editingReply!.id,
+            message: _editReplyController.text.trim(),
+          );
+      _dataChanged = true;
+      setState(() {
+        final replyIdx = _editingReplyParent!.replies
+            .indexWhere((r) => r.id == _editingReply!.id);
+        if (replyIdx != -1) {
+          _editingReplyParent!.replies[replyIdx].message = updated.message;
+        }
+        _editingReply = null;
+        _editingReplyParent = null;
+        _editReplyController.clear();
+      });
+    } catch (e) {
+      _showAlert('수정 실패', e.toString());
+    }
+  }
+
   // ==================== 대댓글 ====================
   void _startReply(entity.PrayerResponse response) {
     setState(() {
@@ -610,19 +756,24 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
       final reply = await ref.read(prayerUseCaseProvider).writeReply(
             responseId: _replyingTo!.id,
             message: _replyController.text.trim(),
+            prayerRequestId: _prayer!.id,
+            prayerRequestTitle: _prayer!.title,
+            categoryId: _prayer!.categoryId,
+            categoryName: _prayer!.categoryName,
           );
       _dataChanged = true;
+      final parentId = _replyingTo!.id;
+      final idx = _prayer!.responses!.indexWhere((r) => r.id == parentId);
+      if (idx != -1) {
+        _prayer!.responses![idx].replyCount += 1;
+        _prayer!.participationCount += 1;
+        await _loadReplies(_prayer!.responses![idx], page: 1);
+      }
       setState(() {
-        final idx =
-            _prayer!.responses!.indexWhere((r) => r.id == _replyingTo!.id);
-        if (idx != -1) {
-          _prayer!.responses![idx].replies.add(reply);
-          _prayer!.responses![idx].replyCount += 1;
-          _prayer!.participationCount += 1;
-        }
         _replyingTo = null;
         _replyController.clear();
       });
+      _scrollToResponse(parentId);
     } catch (e) {
       _showAlert('답글 작성 실패', e.toString());
     }
@@ -662,6 +813,7 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
                           child: RefreshIndicator(
                             onRefresh: _loadDetail,
                             child: ListView(
+                              controller: _scrollController,
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 20),
                               children: [
@@ -698,7 +850,7 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
                       // 대댓글 입력 바
                       if (_replyingTo != null) _replyInputBar(),
                       // 기도 응답하기 버튼
-                      if (_replyingTo == null)
+                      if (_replyingTo == null && _editingReply == null)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
                           child: ActionButton(
@@ -755,16 +907,21 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
 
   // ==================== 댓글 섹션 (댓글 + 대댓글) ====================
   Widget _commentSection(entity.PrayerResponse response) {
+    _responseKeys.putIfAbsent(response.id, () => GlobalKey());
     return Column(
+      key: _responseKeys[response.id],
       children: [
         // 댓글 카드
         _commentCard(response),
         // 대댓글 목록
         if (response.replies.isNotEmpty)
           Column(
-            children: response.replies
-                .map((reply) => _replyCard(reply, response))
-                .toList(),
+            children: response.replies.map((reply) {
+              if (_editingReply?.id == reply.id) {
+                return _editReplyInputBar();
+              }
+              return _replyCard(reply, response);
+            }).toList(),
           ),
         // 대댓글 더보기
         if (_replyHasNext[response.id] == true)
@@ -775,8 +932,8 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
               child: Text('답글 더보기',
                   style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey.shade500,
-                      decoration: TextDecoration.underline)),
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.customBlue1)),
             ),
           ),
         const SizedBox(height: 4),
@@ -924,7 +1081,7 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
                             const Spacer(),
                             if (!isWithdrawnUser)
                               GestureDetector(
-                                onTap: () => _showCommentOptions(reply),
+                                onTap: () => _showReplyOptions(reply, parent),
                                 child: Padding(
                                   padding: const EdgeInsets.all(4),
                                   child: Icon(Icons.more_vert,
@@ -969,6 +1126,7 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
             child: TextField(
               controller: _replyController,
               focusNode: _replyFocusNode,
+              maxLength: 500,
               decoration: InputDecoration(
                 hintText: '${_replyingTo?.userName ?? ''}님에게 답글 작성...',
                 hintStyle: TextStyle(fontSize: 14, color: Colors.grey.shade400),
@@ -980,6 +1138,7 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
                 ),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                counterText: '',
               ),
             ),
           ),
@@ -992,6 +1151,70 @@ class _PrayerDetailViewState extends ConsumerState<PrayerDetailView> {
             onPressed: _cancelReply,
           ),
         ],
+      ),
+    );
+  }
+
+  // ==================== 대댓글 인라인 수정 입력 바 ====================
+  Widget _editReplyInputBar() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.customBlue1.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.customBlue1.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('답글 수정',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.customBlue1)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _editReplyController,
+              focusNode: _editReplyFocusNode,
+              maxLength: 500,
+              maxLines: null,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                counterText: '',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                GestureDetector(
+                  onTap: _cancelEditReply,
+                  child: Text('취소',
+                      style: TextStyle(
+                          fontSize: 13, color: Colors.grey.shade500)),
+                ),
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: _sendEditedReply,
+                  child: Text('수정',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.customBlue1)),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

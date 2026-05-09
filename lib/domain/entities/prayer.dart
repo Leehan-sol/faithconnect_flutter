@@ -40,4 +40,21 @@ class Prayer {
     required this.hasParticipated,
     required this.isMine,
   });
+
+  Prayer copyWith({int? participationCount}) {
+    return Prayer(
+      id: id,
+      userId: userId,
+      userName: userName,
+      categoryId: categoryId,
+      categoryName: categoryName,
+      title: title,
+      content: content,
+      createdAt: createdAt,
+      participationCount: participationCount ?? this.participationCount,
+      responses: responses,
+      hasParticipated: hasParticipated,
+      isMine: isMine,
+    );
+  }
 }
